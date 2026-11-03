@@ -1,0 +1,515 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Online Excel Editor</title>
+
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+<style>
+* { box-sizing: border-box; }
+
+body {
+    margin: 0;
+    font-family: Arial, sans-serif;
+    background: #f3f5f9;
+    color: #222;
+}
+
+header {
+    background: #146c43;
+    color: white;
+    padding: 17px 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 12px;
+}
+
+header h2 { margin: 0; font-size: 21px; }
+
+.container { padding: 18px; }
+
+.toolbar {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 9px;
+    margin-bottom: 15px;
+    align-items: center;
+}
+
+button, .upload-label {
+    border: none;
+    padding: 10px 14px;
+    border-radius: 5px;
+    background: #146c43;
+    color: white;
+    cursor: pointer;
+    font-size: 13px;
+}
+
+button:hover, .upload-label:hover {
+    background: #0d5131;
+}
+
+button.secondary { background: #526477; }
+button.danger { background: #c0392b; }
+
+input, select {
+    padding: 10px;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    font-size: 14px;
+}
+
+#fileInput { display: none; }
+
+.status {
+    padding: 10px;
+    background: white;
+    border-radius: 5px;
+    margin-bottom: 12px;
+    font-size: 13px;
+}
+
+.sheet-area {
+    background: white;
+    border: 1px solid #ddd;
+    border-radius: 7px;
+    overflow: auto;
+    height: 65vh;
+}
+
+table {
+    border-collapse: collapse;
+    min-width: 100%;
+    width: max-content;
+}
+
+th, td {
+    border: 1px solid #ddd;
+    min-width: 110px;
+    height: 34px;
+    padding: 0;
+    font-size: 13px;
+}
+
+th {
+    background: #e9f0ec;
+    padding: 8px;
+    position: sticky;
+    top: 0;
+    z-index: 2;
+}
+
+th:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 3;
+    min-width: 45px;
+}
+
+td:first-child {
+    position: sticky;
+    left: 0;
+    background: #edf1f4;
+    text-align: center;
+    font-weight: bold;
+    min-width: 45px;
+    z-index: 1;
+}
+
+td input {
+    width: 100%;
+    height: 33px;
+    border: 0;
+    border-radius: 0;
+    padding: 7px;
+    outline: none;
+    background: transparent;
+    font-size: 13px;
+}
+
+td input:focus {
+    outline: 2px solid #16834d;
+    background: #f2fff6;
+}
+
+.footer {
+    padding: 13px;
+    display: flex;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 10px;
+    background: white;
+    border-top: 1px solid #ddd;
+}
+
+@media(max-width:600px) {
+    .container { padding: 9px; }
+    header { padding: 14px; }
+    .sheet-area { height: 60vh; }
+}
+</style>
+</head>
+
+<body>
+
+<header>
+    <h2>📊 Online Excel Editor</h2>
+    <span>Excel XLSX / XLS Workspace</span>
+</header>
+
+<div class="container">
+
+<div class="toolbar">
+
+    <label class="upload-label" for="fileInput">
+        📂 Open Excel
+    </label>
+
+    <input type="file" id="fileInput"
+    accept=".xlsx,.xls,.xlsm,.xlsb">
+
+    <button onclick="downloadExcel()">
+        ⬇ Download XLSX
+    </button>
+
+    <button class="secondary" onclick="addRow()">
+        + Add Row
+    </button>
+
+    <button class="secondary" onclick="addColumn()">
+        + Add Column
+    </button>
+
+    <button class="danger" onclick="clearSheet()">
+        Clear Sheet
+    </button>
+
+</div>
+
+<div class="toolbar">
+    <label>Worksheet:</label>
+    <select id="sheetSelect" onchange="changeSheet()">
+        <option value="">No file loaded</option>
+    </select>
+
+    <input type="text" id="searchBox"
+    placeholder="Search cells..."
+    oninput="searchCells()">
+</div>
+
+<div class="status" id="status">
+    Welcome! Open an Excel file to start editing.
+</div>
+
+<div class="sheet-area">
+    <table id="excelTable">
+        <tbody>
+            <tr>
+                <td style="padding:20px">
+                    Upload an Excel file to display your data.
+                </td>
+            </tr>
+        </tbody>
+    </table>
+</div>
+
+<div class="footer">
+    <span id="sheetInfo">No worksheet loaded</span>
+    <span id="editInfo">Ready</span>
+</div>
+
+</div>
+
+<script>
+
+let workbook = null;
+let currentSheet = null;
+let currentRange = null;
+
+const fileInput = document.getElementById("fileInput");
+const table = document.getElementById("excelTable");
+
+fileInput.addEventListener("change", function(e) {
+
+    const file = e.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+
+    reader.onload = function(event) {
+
+        try {
+            const data = new Uint8Array(event.target.result);
+
+            workbook = XLSX.read(data, {
+                type: "array",
+                cellFormula: true,
+                cellDates: true
+            });
+
+            const select = document.getElementById("sheetSelect");
+            select.innerHTML = "";
+
+            workbook.SheetNames.forEach(name => {
+                const option = document.createElement("option");
+                option.value = name;
+                option.textContent = name;
+                select.appendChild(option);
+            });
+
+            currentSheet = workbook.SheetNames[0];
+            select.value = currentSheet;
+
+            renderSheet();
+
+            document.getElementById("status").textContent =
+                "Loaded: " + file.name;
+
+        } catch (error) {
+            alert("Unable to open this Excel file.");
+            console.error(error);
+        }
+    };
+
+    reader.readAsArrayBuffer(file);
+});
+
+function getSheet() {
+    return workbook.Sheets[currentSheet];
+}
+
+function renderSheet() {
+
+    if (!workbook || !currentSheet) return;
+
+    const sheet = getSheet();
+
+    currentRange = sheet["!ref"]
+        ? XLSX.utils.decode_range(sheet["!ref"])
+        : {s:{r:0,c:0},e:{r:19,c:9}};
+
+    // Show at least 20 rows and 10 columns
+    currentRange.e.r = Math.max(currentRange.e.r, 19);
+    currentRange.e.c = Math.max(currentRange.e.c, 9);
+
+    let html = "<thead><tr><th>#</th>";
+
+    for (let c = 0; c <= currentRange.e.c; c++) {
+        html += "<th>" + XLSX.utils.encode_col(c) + "</th>";
+    }
+
+    html += "</tr></thead><tbody>";
+
+    for (let r = 0; r <= currentRange.e.r; r++) {
+
+        html += "<tr><td>" + (r + 1) + "</td>";
+
+        for (let c = 0; c <= currentRange.e.c; c++) {
+
+            const address = XLSX.utils.encode_cell({r:r,c:c});
+            const cell = sheet[address];
+
+            let value = "";
+
+            if (cell) {
+                value = cell.f
+                    ? "=" + cell.f
+                    : (cell.w !== undefined ? cell.w :
+                       cell.v !== undefined ? cell.v : "");
+            }
+
+            html += `<td>
+                <input type="text"
+                value="${escapeAttr(value)}"
+                data-cell="${address}"
+                onchange="updateCell(this)"
+                onkeydown="navigateCell(event,this)">
+            </td>`;
+        }
+
+        html += "</tr>";
+    }
+
+    html += "</tbody>";
+
+    table.innerHTML = html;
+
+    document.getElementById("sheetInfo").textContent =
+        "Worksheet: " + currentSheet;
+
+    document.getElementById("editInfo").textContent =
+        "Rows: " + (currentRange.e.r + 1) +
+        " | Columns: " + (currentRange.e.c + 1);
+}
+
+function escapeAttr(value) {
+    return String(value)
+        .replace(/&/g, "&amp;")
+        .replace(/"/g, "&quot;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+}
+
+function updateCell(input) {
+
+    const address = input.dataset.cell;
+    const value = input.value;
+    const sheet = getSheet();
+
+    if (value === "") {
+        delete sheet[address];
+    } else if (value.startsWith("=")) {
+        sheet[address] = {
+            t: "n",
+            f: value.substring(1)
+        };
+    } else {
+        const parsed = XLSX.utils.sheet_to_json;
+        const number = Number(value);
+
+        if (value.trim() !== "" && Number.isFinite(number)) {
+            sheet[address] = {t:"n", v:number};
+        } else {
+            sheet[address] = {t:"s", v:value};
+        }
+    }
+
+    document.getElementById("status").textContent =
+        "Cell " + address + " updated.";
+
+    // Update worksheet dimensions
+    const pos = XLSX.utils.decode_cell(address);
+
+    if (!sheet["!ref"]) {
+        sheet["!ref"] = XLSX.utils.encode_range({
+            s:{r:0,c:0},e:pos
+        });
+    } else {
+        const range = XLSX.utils.decode_range(sheet["!ref"]);
+
+        range.e.r = Math.max(range.e.r,pos.r);
+        range.e.c = Math.max(range.e.c,pos.c);
+
+        sheet["!ref"] = XLSX.utils.encode_range(range);
+    }
+}
+
+function changeSheet() {
+
+    currentSheet = document.getElementById("sheetSelect").value;
+    renderSheet();
+}
+
+function addRow() {
+
+    if (!workbook) return;
+
+    const sheet = getSheet();
+    const range = sheet["!ref"]
+        ? XLSX.utils.decode_range(sheet["!ref"])
+        : {s:{r:0,c:0},e:{r:0,c:0}};
+
+    range.e.r++;
+
+    sheet["!ref"] = XLSX.utils.encode_range(range);
+
+    renderSheet();
+}
+
+function addColumn() {
+
+    if (!workbook) return;
+
+    const sheet = getSheet();
+    const range = sheet["!ref"]
+        ? XLSX.utils.decode_range(sheet["!ref"])
+        : {s:{r:0,c:0},e:{r:0,c:0}};
+
+    range.e.c++;
+
+    sheet["!ref"] = XLSX.utils.encode_range(range);
+
+    renderSheet();
+}
+
+function clearSheet() {
+
+    if (!workbook) return;
+
+    if (!confirm("Clear all cells in this worksheet?")) return;
+
+    const sheet = getSheet();
+
+    Object.keys(sheet).forEach(key => {
+        if (!key.startsWith("!")) {
+            delete sheet[key];
+        }
+    });
+
+    sheet["!ref"] = "A1:J20";
+
+    renderSheet();
+
+    document.getElementById("status").textContent =
+        "Worksheet cleared.";
+}
+
+function downloadExcel() {
+
+    if (!workbook) {
+        alert("Please open an Excel file first.");
+        return;
+    }
+
+    try {
+        XLSX.writeFile(workbook, "Edited_Excel.xlsx");
+        document.getElementById("status").textContent =
+            "Excel file downloaded.";
+    } catch(error) {
+        alert("Unable to download Excel file.");
+        console.error(error);
+    }
+}
+
+function searchCells() {
+
+    const query = document.getElementById("searchBox")
+        .value.toLowerCase();
+
+    document.querySelectorAll("#excelTable input").forEach(input => {
+
+        if (query && input.value.toLowerCase().includes(query)) {
+            input.style.background = "#fff1a8";
+        } else {
+            input.style.background = "";
+        }
+    });
+}
+
+function navigateCell(event,input) {
+
+    if (event.key === "Enter") {
+        event.preventDefault();
+
+        const inputs = [...document.querySelectorAll(
+            "#excelTable input"
+        )];
+
+        const index = inputs.indexOf(input);
+
+        if (inputs[index + 1]) {
+            inputs[index + 1].focus();
+        }
+    }
+}
+
+</script>
+
+</body>
+</html>
