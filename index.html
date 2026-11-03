@@ -1,1 +1,95 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Excel Editor Pro</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@fortawesome/fontawesome-free@6.7.2/css/all.min.css">
+<style>
+*{box-sizing:border-box}
+body{margin:0;font-family:Arial;background:#f3f5f7;color:#202124}
+header{background:#126b42;color:white;padding:15px 20px;display:flex;justify-content:space-between;align-items:center;gap:10px}
+header h2{margin:0;font-size:20px}
+.toolbar{background:white;padding:12px;display:flex;gap:7px;flex-wrap:wrap;border-bottom:1px solid #ddd}
+button,.filebtn{border:0;padding:9px 12px;border-radius:5px;background:#167449;color:white;cursor:pointer}
+button:hover,.filebtn:hover{background:#105c38}
+button.gray{background:#64748b}
+button.red{background:#c0392b}
+input,select{padding:9px;border:1px solid #ccc;border-radius:4px}
+#upload{display:none}
+.formula{display:flex;gap:8px;background:white;padding:10px;border-bottom:1px solid #ddd}
+.formula input:first-child{width:85px}
+.formula input:last-child{flex:1}
+.workspace{overflow:auto;height:calc(100vh - 240px);background:white}
+table{border-collapse:collapse;min-width:100%;width:max-content}
+th,td{border:1px solid #d7dce0;min-width:110px;height:32px;padding:0}
+th{background:#e9f0ec;position:sticky;top:0;z-index:2}
+th:first-child,td:first-child{position:sticky;left:0;min-width:42px;width:42px;text-align:center;background:#edf1f4;z-index:1}
+th:first-child{z-index:3}
+td input{border:0;border-radius:0;width:100%;height:31px;padding:6px;background:transparent;outline:none}
+td input:focus{outline:2px solid #16834d;background:#f0fff5}
+.tabs{display:flex;gap:5px;background:#fff;padding:10px;overflow:auto}
+.tabs button{background:#e7ece9;color:#222;white-space:nowrap}
+.tabs button.active{background:#167449;color:white}
+.status{padding:9px;background:#fff;font-size:12px;display:flex;justify-content:space-between;gap:10px}
+@media(max-width:600px){header h2{font-size:16px}.toolbar{gap:5px}.toolbar button,.filebtn{font-size:11px;padding:8px}.workspace{height:65vh}}
+</style>
+</head>
+<body>
+
+<header>
+  <h2><i class="fa-solid fa-file-excel"></i> Excel Editor Pro</h2>
+  <span id="network">Checking connection...</span>
+</header>
+
+<div class="toolbar">
+  <label class="filebtn" for="upload">📂 Open Excel</label>
+  <input type="file" id="upload" accept=".xlsx,.xls,.xlsm">
+
+  <button onclick="saveFile()">💾 Save</button>
+  <button onclick="downloadFile()">⬇ Export</button>
+  <button class="gray" onclick="addRow()">+ Row</button>
+  <button class="gray" onclick="addColumn()">+ Column</button>
+  <button class="gray" onclick="deleteRow()">− Row</button>
+  <button class="gray" onclick="deleteColumn()">− Column</button>
+  <button class="gray" onclick="addSheet()">+ Sheet</button>
+  <button class="red" onclick="deleteSheet()">Delete Sheet</button>
+</div>
+
+<div class="toolbar">
+  <button class="gray" onclick="formatCell('bold')"><b>B</b></button>
+  <button class="gray" onclick="formatCell('italic')"><i>I</i></button>
+  <button class="gray" onclick="formatCell('underline')"><u>U</u></button>
+  <button class="gray" onclick="formatCell('left')">Left</button>
+  <button class="gray" onclick="formatCell('center')">Center</button>
+  <button class="gray" onclick="formatCell('right')">Right</button>
+  <input type="color" id="fontColor" title="Font color" value="#000000">
+  <input type="color" id="cellColor" title="Cell background" value="#ffffff">
+  <button class="gray" onclick="applyColors()">Apply colors</button>
+  <button class="gray" onclick="undo()">↶ Undo</button>
+  <button class="gray" onclick="redo()">↷ Redo</button>
+  <button class="gray" onclick="findCell()">Find</button>
+</div>
+
+<div class="formula">
+  <input id="cellName" readonly placeholder="A1">
+  <input id="formulaInput" placeholder="Enter value or formula, e.g. =SUM(A1:A10)">
+  <button onclick="applyFormula()">✓</button>
+</div>
+
+<div class="tabs" id="tabs"></div>
+
+<div class="workspace" id="workspace">
+  <table id="grid"></table>
+</div>
+
+<div class="status">
+  <span id="message">Ready</span>
+  <span id="saveStatus">Not saved</span>
+</div>
+
+<script type="module" src="/app.js"></script>
+</body>
+</html>
+
